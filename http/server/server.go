@@ -35,7 +35,8 @@ func NewServer(stdOut, stdErr io.Writer, dbPath, lastFMApiKey, downDir, listenAd
 func (s *Server) Start(listenAddr string) {
 	s.server = &http.Server{Addr: listenAddr, Handler: s}
 	go func() {
-		if err := s.server.ListenAndServe(); err != nil {
+		s.infoLog.Printf("Starting server, listening on address %s : ", s.server.Addr)
+		if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
 			s.errorLog.Printf("Could not start server: %v", err)
 		}
 	}()
@@ -71,6 +72,7 @@ func (s *Server) initLogging(stdOut, stdErr io.Writer) {
 
 func (s *Server) initRouting() {
 	router := mux.NewRouter().StrictSlash(true)
+	s.infoLog.Println("Registering endpoints.")
 	for _, endpoint := range []struct {
 		method, name, path string
 		handler            http.Handler
@@ -107,6 +109,7 @@ func (s *Server) initDB(DBPath string) error {
 	if err != nil {
 		return err
 	}
+	s.infoLog.Println("Registering entities.")
 	for _, entity := range sortEntitiesByPriority(
 		&models.Artist{},
 		&models.Release{},

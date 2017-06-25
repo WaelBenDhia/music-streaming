@@ -32,3 +32,8 @@ type Creator interface {
 	CreateTable(ex executor) error
 	CreatePriority() int
 }
+
+//Savable to database
+type Savable interface {
+	Save(database) error
+}
