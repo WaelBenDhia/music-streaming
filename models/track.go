@@ -1,9 +1,12 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 //CreateTracksTableQuery query to create tracks table in a SQL database
-var CreateTracksTableQuery = `CREATE TABLE IF NOT EXISTS tracks(
+const CreateTracksTableQuery = `CREATE TABLE IF NOT EXISTS tracks(
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   length INTERVAL,
@@ -13,10 +16,10 @@ var CreateTracksTableQuery = `CREATE TABLE IF NOT EXISTS tracks(
 );`
 
 //CreateGenreIndexQuery query to create an index on the genre column
-var CreateGenreIndexQuery = `CREATE INDEX IF NOT EXISTS genre_index ON tracks(genre);`
+const CreateGenreIndexQuery = `CREATE INDEX IF NOT EXISTS genre_index ON tracks(genre);`
 
 //CreateTrackReleaseRelationTableQuery query to create release<=>track relation table in a SQL database
-var CreateTrackReleaseRelationTableQuery = `CREATE TABLE IF NOT EXISTS track_release_relations(
+const CreateTrackReleaseRelationTableQuery = `CREATE TABLE IF NOT EXISTS track_release_relations(
   track_id INTEGER REFERENCES tracks(id),
   release_id INTEGER REFERENCES releases(id)
 );`
@@ -34,11 +37,30 @@ type Track struct {
 }
 
 //ScanFrom src into track
-func (track *Track) ScanFrom(src scannable) error {
+func (track *Track) ScanFrom(src scanner) error {
 	return src.Scan(&track.ID, &track.Name, &track.Length, &track.TrackURL, &track.Genre, &track.ArtistID)
 }
 
 //Get track by ID from db
-func (track *Track) Get(db queriable) (bool, error) {
+func (track *Track) Get(db querier) (bool, error) {
 	return notFoundOrErr(track.ScanFrom(db.QueryRow("SELECT * FROM tracks WHERE id = $1;", track.ID)))
+}
+
+//CreateTable creates tables in db
+func (track *Track) CreateTable(db executor) error {
+	if _, err := db.Exec(CreateTracksTableQuery); err != nil {
+		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateTracksTableQuery, err)
+	}
+	if _, err := db.Exec(CreateGenreIndexQuery); err != nil {
+		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateGenreIndexQuery, err)
+	}
+	if _, err := db.Exec(CreateTrackReleaseRelationTableQuery); err != nil {
+		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateTrackReleaseRelationTableQuery, err)
+	}
+	return nil
+}
+
+//CreatePriority order for this entity's create table priority
+func (track *Track) CreatePriority() int {
+	return 2
 }

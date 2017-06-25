@@ -6,6 +6,7 @@ import (
 	"github.com/wael/music-streaming/tpbclient"
 )
 
+//Client is a torrent client
 type Client struct {
 	*torrent.Client
 	torrents map[string]*torrent.Torrent
@@ -60,7 +61,6 @@ func (cli *Client) GotInfo(torrent tpbclient.Torrent) <-chan struct{} {
 //IsComplete returns true if torrent has finished downloading
 func (cli *Client) IsComplete(torrent tpbclient.Torrent) bool {
 	if tor := cli.getTorrent(torrent); tor != nil {
-		tor.Files()[0].FileInfo().
 		return tor.BytesMissing() > 0
 	}
 	return false
