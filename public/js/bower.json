@@ -1,0 +1,20 @@
+{
+  "name": "music-streaming-frontend",
+  "homepage": "https://github.com/WaelBenDhia/music-streaming",
+  "description": "frontend for music streaming service",
+  "main": "",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular": "^1.6.4",
+    "angular-material": "^1.1.4",
+    "angular-route": "^1.6.4",
+    "angular-cookies": "^1.6.4"
+  }
+}
