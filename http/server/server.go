@@ -47,6 +47,7 @@ func (s *Server) Stop() error {
 	if err := s.server.Shutdown(nil); err != nil {
 		return err
 	}
+	s.server = nil
 	return s.closeDB()
 }
 
@@ -123,6 +124,7 @@ func (s *Server) initDB(DBPath string) error {
 		return tx.Commit()
 	}
 	_ = tx.Rollback() //We are ignoring the error here because we care about the already existing err
+	s.infoLog.Println("Initialized database successfully.")
 	return err
 }
 

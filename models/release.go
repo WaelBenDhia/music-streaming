@@ -35,6 +35,26 @@ func (rel *Release) Get(db querier) (bool, error) {
 	return notFoundOrErr(rel.ScanFrom(db.QueryRow("SELECT * FROM releases WHERE id = $1;", rel.ID)))
 }
 
+//GetFull rel by ID from db
+func (rel *Release) GetFull(db querier) (bool, error) {
+	found, err := rel.Get(db)
+	if !found || err != nil {
+		return found, err
+	}
+	rows, err := db.Query("SELECT tracks.* FROM tracks INNER JOIN track_release_relations trr ON trr.track_id = tracks.id WHERE trr.release_id = ?")
+	defer func() {
+		if rows != nil {
+			err = errOr(err, rows.Close())
+		}
+	}()
+	for rows.Next() && err == nil {
+		var track Track
+		err = track.ScanFrom(rows)
+		rel.Tracks = append(rel.Tracks, track)
+	}
+	return true, err
+}
+
 //CreateTable creates tables in db
 func (rel *Release) CreateTable(db executor) error {
 	if _, err := db.Exec(CreateReleasesTableQuery); err != nil {
@@ -46,4 +66,21 @@ func (rel *Release) CreateTable(db executor) error {
 //CreatePriority order for this entity's create table priority
 func (rel *Release) CreatePriority() int {
 	return 1
+}
+
+//Search for releases by artist
+func (rel *Release) Search(db querier) ([]Release, error) {
+	rows, err := db.Query(`SELECT * FROM releases WHERE album_artist_id = ?;`)
+	var releases []Release
+	defer func() {
+		if rows != nil {
+			err = errOr(err, rows.Close())
+		}
+	}()
+	for rows.Next() && err == nil {
+		var rel Release
+		err = rel.ScanFrom(rows)
+		releases = append(releases, rel)
+	}
+	return releases, err
 }
