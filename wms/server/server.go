@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/wael/music-streaming/models"
-	"github.com/wael/music-streaming/musicinfo"
-	"github.com/wael/music-streaming/torrentclient"
+	"github.com/wael/music-streaming/lastfm"
+	"github.com/wael/music-streaming/wms/models"
+	"github.com/wael/music-streaming/wms/torrent"
 )
 
 type middleware func(http.Handler) http.Handler
@@ -21,8 +21,8 @@ type Server struct {
 	server                        *http.Server
 	infoLog, warningLog, errorLog *log.Logger
 	db                            *sql.DB
-	lfmCli                        *musicinfo.LastFmClient
-	torrentCli                    *torrentclient.Client
+	lfmCli                        *lastfm.Client
+	torrentCli                    *torrent.Client
 }
 
 //NewServer creates and initializes a new music streaming server
@@ -153,7 +153,7 @@ func (s *Server) closeDB() error {
 }
 
 func (s *Server) initlfmCli(apiKey string) error {
-	cli, err := musicinfo.CreateLastFmClient(apiKey)
+	cli, err := lastfm.CreateLastFmClient(apiKey)
 	if err != nil {
 		s.errorLog.Printf("Could not create last FM Client: %v", err)
 	}
@@ -162,7 +162,7 @@ func (s *Server) initlfmCli(apiKey string) error {
 }
 
 func (s *Server) initTorrentClient(downloadDirectory, listenAddr string) error {
-	cli, err := torrentclient.NewClient(downloadDirectory, listenAddr)
+	cli, err := torrent.NewClient(downloadDirectory, listenAddr)
 	if err != nil {
 		s.errorLog.Printf("Could not create torrent Client: %v", err)
 	}

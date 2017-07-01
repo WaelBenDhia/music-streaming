@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/wael/music-streaming/http/server"
+	"github.com/wael/music-streaming/wms/server"
 )
 
 func main() {

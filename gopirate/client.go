@@ -1,4 +1,4 @@
-package tpbclient
+package gopirate
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/wael/music-streaming/models"
 	"golang.org/x/net/html"
 )
 
@@ -19,15 +18,6 @@ type Torrent struct {
 }
 
 const query = `https://thepiratebay.org/search/%s/0/7/0`
-
-//SearchRelease on TPB and returns the first page
-// of results parsed into and array of Torrent structs
-func SearchRelease(release models.Release) ([]Torrent, error) {
-	if release.AlbumArtist == nil {
-		return nil, errors.New("FindAndAddTPBTorrent: release has no artist associated")
-	}
-	return Search(release.AlbumArtist.Name + " " + release.Name)
-}
 
 //Search for searchTerm on TPB and returns the first page
 // of results parsed into and array of Torrent structs

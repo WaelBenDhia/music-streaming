@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 
-	"github.com/wael/music-streaming/models"
+	"github.com/wael/music-streaming/wms/models"
 )
 
 //AddMiddleware creates a new handler adapted with middleware
