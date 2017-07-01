@@ -1,16 +1,17 @@
 package server
 
 import (
-	"database/sql"
 	"io"
 	"log"
 	"net/http"
-	"os"
+
+	"runtime/debug"
 
 	"github.com/gorilla/mux"
 	"github.com/wael/music-streaming/lastfm"
-	"github.com/wael/music-streaming/wms/models"
+	"github.com/wael/music-streaming/wms/db"
 	"github.com/wael/music-streaming/wms/torrent"
+	"gopkg.in/mgo.v2"
 )
 
 type middleware func(http.Handler) http.Handler
@@ -20,15 +21,15 @@ type Server struct {
 	http.Handler
 	server                        *http.Server
 	infoLog, warningLog, errorLog *log.Logger
-	db                            *sql.DB
+	db                            *mgo.Database
 	lfmCli                        *lastfm.Client
 	torrentCli                    *torrent.Client
 }
 
 //NewServer creates and initializes a new music streaming server
-func NewServer(stdOut, stdErr io.Writer, dbPath, lastFMApiKey, downDir, listenAddr string) (Server, error) {
+func NewServer(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, downDir, listenAddr string) (Server, error) {
 	s := Server{}
-	return s, s.init(stdOut, stdErr, dbPath, lastFMApiKey, downDir, listenAddr)
+	return s, s.init(stdOut, stdErr, host, dbPath, lastFMApiKey, downDir, listenAddr)
 }
 
 //Start server
@@ -50,20 +51,20 @@ func (s *Server) Start(listenAddr string) <-chan int {
 
 //Stop the server
 func (s *Server) Stop() error {
-	if err := s.server.Shutdown(nil); err != nil {
-		return err
-	}
+	err := s.server.Shutdown(nil)
 	s.server = nil
-	return s.closeDB()
+	s.closeDB()
+	return err
 }
 
-func (s *Server) init(stdOut, stdErr io.Writer, dbPath, lastFMApiKey, downDir, listenAddr string) error {
+func (s *Server) init(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, downDir, listenAddr string) error {
 	s.initLogging(stdOut, stdErr)
 	s.initRouting()
-	err := s.initDB(dbPath)
+	err := s.initDB(host, dbPath)
 	if err != nil {
 		return err
 	}
+	s.infoLog.Printf("Opened database %s:%s", host, dbPath)
 	err = s.initlfmCli(lastFMApiKey)
 	if err != nil {
 		return err
@@ -105,51 +106,25 @@ func (s *Server) initRouting() {
 	s.Handler = router
 }
 
-func (s *Server) initDB(DBPath string) error {
+func (s *Server) initDB(host, DB string) error {
 	if s.db != nil {
+		s.warningLog.Println("Attempted to initialize already initialized database connection")
+		s.warningLog.Println(string(debug.Stack()))
 		return nil
 	}
-	s.infoLog.Println("Initializing Database")
-	if _, err := os.Stat(DBPath); err != nil {
-		s.warningLog.Println("Could not find Database:'" + DBPath + "'. Creating it.")
-		if _, err := os.Create(DBPath); err != nil {
-			return err
-		}
-	}
 	var err error
-	s.db, err = sql.Open("sqlite3", DBPath)
-	if err != nil {
-		return err
-	}
-
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	s.infoLog.Println("Registering entities.")
-	for _, entity := range sortEntitiesByPriority(
-		&models.Artist{},
-		&models.Release{},
-		&models.Statistic{},
-		&models.Track{}) {
-		if err == nil {
-			err = entity.CreateTable(tx)
-		}
-	}
-	if err == nil {
-		return tx.Commit()
-	}
-	_ = tx.Rollback() //We are ignoring the error here because we care about the already existing err
-	s.infoLog.Println("Initialized database successfully.")
+	s.db, err = db.OpenDB(host, DB)
 	return err
 }
 
-func (s *Server) closeDB() error {
+func (s *Server) closeDB() {
 	if s.db == nil {
 		s.warningLog.Println("Tried to close already closed database")
-		return nil
+	} else {
+		s.db.Session.Close()
+		s.db = nil
+		s.infoLog.Println("Database session closed")
 	}
-	return s.db.Close()
 }
 
 func (s *Server) initlfmCli(apiKey string) error {
