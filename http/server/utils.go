@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"math/rand"
 	"net/http"
 
@@ -45,4 +46,8 @@ func sortEntitiesByPriority(entities ...models.Creator) []models.Creator {
 	sortEntitiesByPriority(entities[:left]...)
 	sortEntitiesByPriority(entities[left+1:]...)
 	return entities
+}
+
+func ctxWithValCancel(ctx context.Context, valKey key, val interface{}) (context.Context, context.CancelFunc) {
+	return context.WithCancel(context.WithValue(ctx, valKey, val))
 }

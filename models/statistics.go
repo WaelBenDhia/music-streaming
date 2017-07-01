@@ -6,7 +6,7 @@ import (
 )
 
 //CreateStatisticsTableQuery query to create statistics table in a SQL database
-const CreateStatisticsTableQuery = `CREATE TABLE statistics(
+const CreateStatisticsTableQuery = `CREATE TABLE IF NOT EXISTS statistics(
   track_id INTEGER REFERENCES tracks(id),
   listener TEXT,
   listened_at DATETIME DEFAULT CURRENT_TIMESTAMP

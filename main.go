@@ -8,10 +8,9 @@ import (
 )
 
 func main() {
-
-	server, err := server.NewServer(os.Stdout, os.Stderr, "./streaming.db", os.Getenv("LASTFM_API_KEY"), "./downloads", "12345")
+	server, err := server.NewServer(os.Stdout, os.Stderr, "./streaming.db", os.Getenv("LASTFM_API_KEY"), "./downloads", ":12345")
 	if err != nil {
 		log.Fatal(err)
 	}
-	server.Start("8082")
+	log.Println("server exited with value:", <-server.Start(":8082"))
 }

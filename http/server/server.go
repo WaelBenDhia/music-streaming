@@ -32,14 +32,20 @@ func NewServer(stdOut, stdErr io.Writer, dbPath, lastFMApiKey, downDir, listenAd
 }
 
 //Start server
-func (s *Server) Start(listenAddr string) {
+func (s *Server) Start(listenAddr string) <-chan int {
 	s.server = &http.Server{Addr: listenAddr, Handler: s}
+	doneChan := make(chan int, 1)
 	go func() {
-		s.infoLog.Printf("Starting server, listening on address %s : ", s.server.Addr)
+		s.infoLog.Println("Starting server, listening on address:", s.server.Addr)
+		var exitVal int
 		if err := s.server.ListenAndServe(); err != http.ErrServerClosed {
 			s.errorLog.Printf("Could not start server: %v", err)
+			exitVal = 1
 		}
+		doneChan <- exitVal
+		close(doneChan)
 	}()
+	return doneChan
 }
 
 //Stop the server
@@ -78,7 +84,17 @@ func (s *Server) initRouting() {
 		method, name, path string
 		handler            http.Handler
 		middlewares        []middleware
-	}{} {
+	}{
+		{
+			"GET",
+			"NOTHING",
+			"/",
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("hello"))
+			}),
+			nil,
+		},
+	} {
 		s.infoLog.Printf("Registering '%s' endpoint: '%s': %s", endpoint.name, endpoint.path, endpoint.path)
 		router.
 			Methods(endpoint.method).
