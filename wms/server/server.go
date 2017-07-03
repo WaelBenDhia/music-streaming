@@ -4,12 +4,12 @@ import (
 	"io"
 	"log"
 	"net/http"
-
 	"runtime/debug"
 
 	"github.com/gorilla/mux"
 	"github.com/wael/music-streaming/lastfm"
 	"github.com/wael/music-streaming/wms/db"
+	"github.com/wael/music-streaming/wms/models"
 	"github.com/wael/music-streaming/wms/torrent"
 	"gopkg.in/mgo.v2"
 )
@@ -64,7 +64,6 @@ func (s *Server) init(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, down
 	if err != nil {
 		return err
 	}
-	s.infoLog.Printf("Opened database %s:%s", host, dbPath)
 	err = s.initlfmCli(lastFMApiKey)
 	if err != nil {
 		return err
@@ -114,6 +113,20 @@ func (s *Server) initDB(host, DB string) error {
 	}
 	var err error
 	s.db, err = db.OpenDB(host, DB)
+	if err != nil {
+		return err
+	}
+	for _, mdl := range []models.ColCreator{
+		&models.Artist{},
+		&models.Release{},
+		&models.Statistic{},
+		&models.Track{},
+	} {
+		err = mdl.ColCreate(s.db)
+		if err != nil {
+			break
+		}
+	}
 	return err
 }
 

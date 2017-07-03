@@ -3,84 +3,73 @@ package models
 import (
 	"fmt"
 	"time"
+
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
-//CreateReleasesTableQuery query to create releases table in a SQL database
-const CreateReleasesTableQuery = `CREATE TABLE IF NOT EXISTS releases(
-  id SERIAL PRIMARY KEY,
-  release_date DATE,
-  name TEXT NOT NULL,
-  album_artist_id INTEGER REFERENCES artists(id),
-  cover_url TEXT
-);`
+const relColName = "release"
 
 //Release represents an artist/band/person
 type Release struct {
-	ID            int       `json:"id"`
-	ReleaseDate   time.Time `json:"releaseDate"`
-	Name          string    `json:"name"`
-	AlbumArtistID int       `json:"-"`
-	AlbumArtist   *Artist   `json:"artist,omitempty"`
-	CoverURL      string    `json:"coverURL"`
-	Tracks        []Track   `json:"tracks"`
+	ID            bson.ObjectId `json:"id" bson:"_id"`
+	ReleaseDate   time.Time     `json:"releaseDate" bson:"release_date"`
+	Name          string        `json:"name" bson:"name"`
+	AlbumArtistID string        `json:"-" bson:"album_artist_id"`
+	AlbumArtist   *Artist       `json:"artist,omitempty" bson:"-"`
+	CoverURL      string        `json:"coverURL" bson:"cover_url"`
+	TrackIDs      []string      `json:"-" bson:"track_ids"`
+	Tracks        []Track       `json:"tracks" bson:"-"`
 }
 
-//ScanFrom src into rel
-func (rel *Release) ScanFrom(src scanner) error {
-	return src.Scan(&rel.ID, &rel.ReleaseDate, &rel.Name, &rel.AlbumArtistID, &rel.CoverURL)
-}
-
-//Get rel by ID from db
-func (rel *Release) Get(db querier) (bool, error) {
-	return notFoundOrErr(rel.ScanFrom(db.QueryRow("SELECT * FROM releases WHERE id = $1;", rel.ID)))
+//Get rel by ID or Name from db
+func (rel *Release) Get(db *mgo.Database) (bool, error) {
+	finder := bson.M{"name": rel.Name}
+	if rel.Name == "" {
+		finder = bson.M{"_id": rel.ID}
+	}
+	return notFoundOrErr(db.C(relColName).Find(finder).One(rel))
 }
 
 //GetFull rel by ID from db
-func (rel *Release) GetFull(db querier) (bool, error) {
+func (rel *Release) GetFull(db *mgo.Database) (bool, error) {
 	found, err := rel.Get(db)
 	if !found || err != nil {
 		return found, err
 	}
-	rows, err := db.Query("SELECT tracks.* FROM tracks INNER JOIN track_release_relations trr ON trr.track_id = tracks.id WHERE trr.release_id = ?")
-	defer func() {
-		if rows != nil {
-			err = errOr(err, rows.Close())
+	rel.AlbumArtist = &Artist{ID: bson.ObjectId(rel.AlbumArtistID)}
+	found, err = rel.AlbumArtist.Get(db)
+	if !found || err != nil {
+		return found, err
+	}
+	var quErr error
+	for _, trcID := range rel.TrackIDs {
+		track := Track{ID: bson.ObjectId(trcID)}
+		found, quErr = track.Get(db)
+		if !found {
+			quErr = fmt.Errorf("Track with ID: '%s' not found", string(track.ID))
 		}
-	}()
-	for rows.Next() && err == nil {
-		var track Track
-		err = track.ScanFrom(rows)
-		rel.Tracks = append(rel.Tracks, track)
+		if quErr != nil {
+			break
+		}
 	}
-	return true, err
+	return true, quErr
 }
 
-//CreateTable creates tables in db
-func (rel *Release) CreateTable(db executor) error {
-	if _, err := db.Exec(CreateReleasesTableQuery); err != nil {
-		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateReleasesTableQuery, err)
-	}
-	return nil
-}
-
-//CreatePriority order for this entity's create table priority
-func (rel *Release) CreatePriority() int {
-	return 1
+//ColCreate creates tables in db
+func (rel *Release) ColCreate(db *mgo.Database) error {
+	return db.C(relColName).EnsureIndex(mgo.Index{Key: []string{"name", "album_artist_id"}, Unique: true})
 }
 
 //Search for releases by artist
-func (rel *Release) Search(db querier) ([]Release, error) {
-	rows, err := db.Query(`SELECT * FROM releases WHERE album_artist_id = ?;`)
-	var releases []Release
-	defer func() {
-		if rows != nil {
-			err = errOr(err, rows.Close())
-		}
-	}()
-	for rows.Next() && err == nil {
-		var rel Release
-		err = rel.ScanFrom(rows)
-		releases = append(releases, rel)
-	}
-	return releases, err
+func (rel *Release) Search(db *mgo.Database) ([]Release, error) {
+	var rels []Release
+	err := db.C(relColName).Find(bson.M{"album_artist_id": rel.AlbumArtistID}).All(&rels)
+	return rels, err
+}
+
+//Save rel to db
+func (rel *Release) Save(db *mgo.Database) error {
+	rel.ID = bson.NewObjectId()
+	return db.C(relColName).Insert(rel)
 }

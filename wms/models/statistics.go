@@ -1,45 +1,27 @@
 package models
 
 import (
-	"fmt"
 	"time"
+
+	"gopkg.in/mgo.v2"
 )
 
-//CreateStatisticsTableQuery query to create statistics table in a SQL database
-const CreateStatisticsTableQuery = `CREATE TABLE IF NOT EXISTS statistics(
-  track_id INTEGER REFERENCES tracks(id),
-  listener TEXT,
-  listened_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);`
-
-//CreateListenerIndexQuery listener index
-const CreateListenerIndexQuery = `CREATE INDEX IF NOT EXISTS listener_index ON statistics(listener);`
+const statColName = "statistics"
 
 //Statistic tracks listens
 type Statistic struct {
-	TrackID   int       `json:"-"`
-	Listener  string    `json:"listener"`
-	Track     *Track    `json:"track"`
-	TimeStamp time.Time `json:"timestamp"`
+	TrackID   string    `json:"-" bson:"track_id"`
+	Listener  string    `json:"listener" bson:"listener_ip"`
+	Track     *Track    `json:"track" bson:"-"`
+	TimeStamp time.Time `json:"timestamp" bson:"timestamp"`
 }
 
-//ScanFrom src into stat
-func (stat *Statistic) ScanFrom(src scanner) error {
-	return src.Scan(&stat.TrackID, &stat.Listener, &stat.TimeStamp)
+//Save rel to db
+func (stat *Statistic) Save(db *mgo.Database) error {
+	return db.C(relColName).Insert(stat)
 }
 
-//CreateTable creates tables in db
-func (stat *Statistic) CreateTable(db executor) error {
-	if _, err := db.Exec(CreateStatisticsTableQuery); err != nil {
-		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateStatisticsTableQuery, err)
-	}
-	if _, err := db.Exec(CreateListenerIndexQuery); err != nil {
-		return fmt.Errorf("Error in query: '%s'\nError: %v", CreateListenerIndexQuery, err)
-	}
+//ColCreate creates collection in db
+func (stat *Statistic) ColCreate(db *mgo.Database) error {
 	return nil
-}
-
-//CreatePriority order for this entity's create table priority
-func (stat *Statistic) CreatePriority() int {
-	return 3
 }
