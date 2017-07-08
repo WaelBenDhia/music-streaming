@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"io"
 	"log"
 	"net/http"
@@ -51,7 +52,7 @@ func (s *Server) Start(listenAddr string) <-chan int {
 
 //Stop the server
 func (s *Server) Stop() error {
-	err := s.server.Shutdown(nil)
+	err := s.server.Shutdown(context.TODO())
 	s.server = nil
 	s.closeDB()
 	return err
@@ -60,14 +61,18 @@ func (s *Server) Stop() error {
 func (s *Server) init(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, downDir, listenAddr string) error {
 	s.initLogging(stdOut, stdErr)
 	s.initRouting()
+	s.infoLog.Println("Initialzing DB")
 	err := s.initDB(host, dbPath)
 	if err != nil {
 		return err
 	}
+	s.infoLog.Println("Done")
+	s.infoLog.Println("Initializing lastFM client")
 	err = s.initlfmCli(lastFMApiKey)
 	if err != nil {
 		return err
 	}
+	s.infoLog.Println("Done")
 	return s.initTorrentClient(downDir, listenAddr)
 }
 
@@ -81,18 +86,26 @@ func (s *Server) initRouting() {
 	router := mux.NewRouter().StrictSlash(true)
 	s.infoLog.Println("Registering endpoints.")
 	for _, endpoint := range []struct {
-		method, name, path string
+		name, method, path string
 		handler            http.Handler
-		middlewares        []middleware
 	}{
 		{
+			"Index",
 			"GET",
-			"NOTHING",
 			"/",
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("hello"))
+				panicIfErr(w.Write([]byte("hello")))
 			}),
-			nil,
+		}, {
+			"Search albums",
+			"GET",
+			"/albums",
+			http.HandlerFunc(s.searchAlbumsHandler),
+		}, {
+			"Download album",
+			"POST",
+			"/album",
+			AddMiddleware(s.downloadAlbumHandler)(s.requestParsingMiddleware(&models.Release{})),
 		},
 	} {
 		s.infoLog.Printf("Registering '%s' endpoint: '%s': %s", endpoint.name, endpoint.path, endpoint.path)
@@ -100,7 +113,7 @@ func (s *Server) initRouting() {
 			Methods(endpoint.method).
 			Path(endpoint.path).
 			Name(endpoint.name).
-			Handler(AddMiddleware(endpoint.handler)(endpoint.middlewares...))
+			Handler(endpoint.handler)
 	}
 	s.Handler = router
 }

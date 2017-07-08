@@ -12,14 +12,14 @@ const relColName = "release"
 
 //Release represents an artist/band/person
 type Release struct {
-	ID            bson.ObjectId `json:"id" bson:"_id"`
-	ReleaseDate   time.Time     `json:"releaseDate" bson:"release_date"`
-	Name          string        `json:"name" bson:"name"`
+	ID            bson.ObjectId `json:"id,omitempty" bson:"_id"`
+	ReleaseDate   time.Time     `json:"releaseDate,omitempty" bson:"release_date"`
+	Name          string        `json:"name,omitempty" bson:"name"`
 	AlbumArtistID string        `json:"-" bson:"album_artist_id"`
 	AlbumArtist   *Artist       `json:"artist,omitempty" bson:"-"`
-	CoverURL      string        `json:"coverURL" bson:"cover_url"`
+	CoverURL      string        `json:"coverURL,omitempty" bson:"cover_url"`
 	TrackIDs      []string      `json:"-" bson:"track_ids"`
-	Tracks        []Track       `json:"tracks" bson:"-"`
+	Tracks        []Track       `json:"tracks,omitempty" bson:"-"`
 }
 
 //Get rel by ID or Name from db
@@ -61,10 +61,17 @@ func (rel *Release) ColCreate(db *mgo.Database) error {
 	return db.C(relColName).EnsureIndex(mgo.Index{Key: []string{"name", "album_artist_id"}, Unique: true})
 }
 
-//Search for releases by artist
+//Search for releases by artist then name
 func (rel *Release) Search(db *mgo.Database) ([]Release, error) {
-	var rels []Release
-	err := db.C(relColName).Find(bson.M{"album_artist_id": rel.AlbumArtistID}).All(&rels)
+	var (
+		rels []Release
+		err  error
+	)
+	if rel.AlbumArtistID != "" {
+		err = db.C(relColName).Find(bson.M{"album_artist_id": rel.AlbumArtistID}).All(&rels)
+	} else {
+		err = db.C(relColName).Find(bson.M{"name": rel.Name}).All(&rels)
+	}
 	return rels, err
 }
 

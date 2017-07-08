@@ -7,26 +7,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-//CreateArtistsTableQuery query to create artists table in a SQL database
-// const CreateArtistsTableQuery = `CREATE TABLE IF NOT EXISTS artists(
-//   id SERIAL PRIMARY KEY,
-//   name TEXT NOT NULL,
-//   image_url TEXT
-// );`
-
-//CreateArtistRelationsTableQuery query to create artist relations table in a SQL database
-// const CreateArtistRelationsTableQuery = `CREATE TABLE IF NOT EXISTS artist_relations(
-//   id1 INTEGER REFERENCES artists(id),
-//   id2 INTEGER REFERENCES artists(id)
-// );`
-
 const artistColName = "artist"
 
 //Artist represents an artist/band/person
 type Artist struct {
 	ID               bson.ObjectId `json:"-" bson:"_id,omitempty"`
-	Name             string        `json:"name" bson:"name"`
-	ImageURL         string        `json:"imageURL" bson:"image_url"`
+	Name             string        `json:"name,omitempty" bson:"name"`
+	ImageURL         string        `json:"imageURL,omitempty" bson:"image_url"`
 	RelatedArtistIDs []string      `json:"-" bson:"related_artist_ids"`
 	RelatedArtists   []Artist      `json:"relatedArtists,omitempty" bson:"-"`
 	Releases         []Release     `json:"releases,omitempty" bson:"-"`

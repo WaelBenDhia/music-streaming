@@ -11,11 +11,11 @@ const trackColName = "track"
 
 //Track represents an artist/band/person
 type Track struct {
-	ID       bson.ObjectId `json:"id" bson:"_id"`
-	Name     string        `json:"name" bson:"name"`
-	Length   time.Duration `json:"length" bson:"length"`
+	ID       bson.ObjectId `json:"id,omitempty" bson:"_id"`
+	Name     string        `json:"name,omitempty" bson:"name"`
+	Length   time.Duration `json:"length,omitempty" bson:"length"`
 	TrackURL string        `json:"-" bson:"track_url"`
-	Genre    string        `json:"genre" bson:"genre"`
+	Genre    string        `json:"genre,omitempty" bson:"genre"`
 	ArtistID int           `json:"-" bson:"artist_id"`
 	Artist   *Artist       `json:"artist,omitempty" bson:"-"`
 	Releases []Release     `json:"releases,omitempty" bson:"-"`
