@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -76,7 +77,10 @@ func scoreTorrentName(name string) func(gopirate.Torrent) int {
 }
 
 func scoreTorrentHealth(tor gopirate.Torrent) int {
-	return tor.Seeders - tor.Leechers
+	if tor.Seeders == 0 {
+		return math.MaxInt32
+	}
+	return tor.Leechers - tor.Seeders
 }
 
 func torrentSort(a []gopirate.Torrent, score func(gopirate.Torrent) int) []gopirate.Torrent {
@@ -95,4 +99,21 @@ func torrentSort(a []gopirate.Torrent, score func(gopirate.Torrent) int) []gopir
 	torrentSort(a[:left], score)
 	torrentSort(a[left+1:], score)
 	return a
+}
+func lfmAlbumInfoWrapper(lfmAlb *lastfm.Album, err error) (*models.Release, error) {
+	if err != nil {
+		return nil, err
+	}
+	rel := &models.Release{
+		Name: lfmAlb.Name,
+		AlbumArtist: &models.Artist{
+			Name: lfmAlb.Artist,
+		},
+	}
+	for _, track := range lfmAlb.Tracks.Tracks {
+		rel.Tracks = append(rel.Tracks, models.Track{
+			Name: track.Name,
+		})
+	}
+	return rel, err
 }

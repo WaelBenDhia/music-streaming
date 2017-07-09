@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	server, err := server.NewServer(os.Stdout, os.Stderr, "localhost", "wmsDB", os.Getenv("LASTFM_API_KEY"), "./downloads", ":12345")
+	server, err := server.NewServer(os.Stdout, os.Stderr, "localhost", "wmsDB", os.Getenv("LASTFM_API_KEY"), "/home/wael/third-world-streams/", "0.0.0.0:12345")
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -7,8 +7,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"log"
-
 	"golang.org/x/net/html"
 )
 
@@ -21,11 +19,16 @@ type Torrent struct {
 	Leechers int
 }
 
+type direction int
+
 const (
-	query       = `https://thepiratebay.org/search/%s/0/7/0`
-	firstChild  = `FirstChild`
-	nextSibling = `NextSibling`
+	query           = `https://thepiratebay.org/search/%s/0/7/0`
+	fC    direction = iota
+	nS
 )
+
+//ErrNoResults no results found
+var ErrNoResults = errors.New("could not find results")
 
 //Search for searchTerm on TPB and returns the first page
 // of results parsed into and array of Torrent structs
@@ -40,7 +43,7 @@ func Search(searchTerm string) ([]Torrent, error) {
 	}
 	searchResults := searchTreeForSearchResult(node)
 	if searchResults == nil {
-		return nil, errors.New("could not find results")
+		return nil, ErrNoResults
 	}
 	node = searchResults.FirstChild
 	var results []Torrent
@@ -59,18 +62,18 @@ func Search(searchTerm string) ([]Torrent, error) {
 
 func extractDataFromTR(tr *html.Node) (Torrent, error) {
 	var result Torrent
-	root, err := extractPath(tr, []string{firstChild, nextSibling, nextSibling, nextSibling})
+	root, err := extractPath(tr, []direction{fC, nS, nS, nS})
 	if err != nil {
 		return result, fmt.Errorf("can't find root node: %v", err)
 	}
 
-	nameNode, err := extractPath(root, []string{firstChild, nextSibling, firstChild, nextSibling, firstChild})
+	nameNode, err := extractPath(root, []direction{fC, nS, fC, nS, fC})
 	if err != nil {
 		return result, fmt.Errorf("can't find name node: %v", err)
 	}
 	result.Name = nameNode.Data
 
-	linkNode, err := extractPath(root, []string{firstChild, nextSibling, nextSibling, nextSibling})
+	linkNode, err := extractPath(root, []direction{fC, nS, nS, nS})
 	if err != nil {
 		return result, fmt.Errorf("can't find link node: %v", err)
 	}
@@ -81,7 +84,7 @@ func extractDataFromTR(tr *html.Node) (Torrent, error) {
 		}
 	}
 
-	seedersNode, err := extractPath(root, []string{nextSibling, nextSibling, firstChild})
+	seedersNode, err := extractPath(root, []direction{nS, nS, fC})
 	if err != nil {
 		return result, fmt.Errorf("can't find seeders node: %v", err)
 	}
@@ -90,13 +93,12 @@ func extractDataFromTR(tr *html.Node) (Torrent, error) {
 		return result, err
 	}
 
-	leechersNode, err := extractPath(root, []string{nextSibling, nextSibling, nextSibling, nextSibling, firstChild})
+	leechersNode, err := extractPath(root, []direction{nS, nS, nS, nS, fC})
 	if err != nil {
 		return result, fmt.Errorf("can't find leechers node: %v", err)
 	}
 	result.Leechers, err = strconv.Atoi(leechersNode.Data)
-	log.Println(searchNodeForType(root, "font"))
-	infoNode, err := extractPath(root, []string{firstChild, nextSibling, nextSibling, nextSibling, nextSibling, nextSibling, nextSibling, nextSibling, firstChild})
+	infoNode, err := extractPath(root, []direction{fC, nS, nS, nS, nS, nS, nS, nS, fC})
 	if err != nil {
 		return result, fmt.Errorf("can't find info node: %v", err)
 	}
@@ -120,7 +122,7 @@ func searchTreeForSearchResult(node *html.Node) *html.Node {
 	return searchTreeForSearchResult(node.NextSibling)
 }
 
-func searchNodeForType(node *html.Node, data string) ([]string, *html.Node) {
+func searchNodeForType(node *html.Node, data string) ([]direction, *html.Node) {
 	if node == nil {
 		return nil, nil
 	}
@@ -128,15 +130,15 @@ func searchNodeForType(node *html.Node, data string) ([]string, *html.Node) {
 		return nil, node
 	}
 	if path, resNode := searchNodeForType(node.FirstChild, data); resNode != nil {
-		return append([]string{"FirstChild"}, path...), resNode
+		return append([]direction{fC}, path...), resNode
 	}
 	if path, resNode := searchNodeForType(node.NextSibling, data); resNode != nil {
-		return append([]string{"NextSibling"}, path...), resNode
+		return append([]direction{nS}, path...), resNode
 	}
 	return nil, nil
 }
 
-func extractPath(node *html.Node, path []string) (*html.Node, error) {
+func extractPath(node *html.Node, path []direction) (*html.Node, error) {
 	if node == nil {
 		return nil, errors.New("can't parse node")
 	}
@@ -144,11 +146,11 @@ func extractPath(node *html.Node, path []string) (*html.Node, error) {
 		return node, nil
 	}
 	switch path[0] {
-	case firstChild:
+	case fC:
 		return extractPath(node.FirstChild, path[1:])
-	case nextSibling:
+	case nS:
 		return extractPath(node.NextSibling, path[1:])
 	default:
-		return nil, errors.New("unknown direction " + path[0])
+		return nil, fmt.Errorf("unknown direction %v", path[0])
 	}
 }

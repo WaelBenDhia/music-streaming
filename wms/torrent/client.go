@@ -2,11 +2,15 @@ package torrent
 
 import (
 	"errors"
+	"log"
 
 	"github.com/anacrolix/torrent"
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/wael/music-streaming/gopirate"
-	"github.com/wael/music-streaming/wms/models"
 )
+
+//ErrTorrentNotFound if torrent is not found this error is returned
+var ErrTorrentNotFound = errors.New("torrent not found")
 
 //Client is a torrent client
 type Client struct {
@@ -20,19 +24,10 @@ func NewClient(downloadDirectory, listenAddr string) (Client, error) {
 		DataDir:    downloadDirectory,
 		ListenAddr: listenAddr,
 		NoUpload:   false,
-		Seed:       false,
+		Seed:       true,
 		Debug:      true,
 	})
 	return Client{cli, make(map[string]*torrent.Torrent)}, err
-}
-
-//FindAndAddTPBTorrent search for relase on TPB and adds it to client
-func (cli *Client) FindAndAddTPBTorrent(release models.Release) error {
-	results, err := searchRelease(release)
-	if err != nil {
-		return err
-	}
-	return cli.AddTPBTorrent(results[0])
 }
 
 //AddTPBTorrent adds a magnet link to client
@@ -60,18 +55,33 @@ func (cli *Client) GotInfo(torrent gopirate.Torrent) <-chan struct{} {
 	return nil
 }
 
+//GetInfo returns torrent metadata if exists
+func (cli *Client) GetInfo(torrent gopirate.Torrent) *metainfo.Info {
+	if tor := cli.getTorrent(torrent); tor != nil {
+		return tor.Info()
+	}
+	return nil
+}
+
+//StartAll downloads all files within given torrent
+func (cli *Client) StartAll(torrent gopirate.Torrent) error {
+	if tor := cli.getTorrent(torrent); tor != nil {
+		tor.DownloadAll()
+		return nil
+	}
+	return ErrTorrentNotFound
+}
+
+//PrintStatus prints status of given torrent
+func (cli *Client) PrintStatus(torrent gopirate.Torrent, logger *log.Logger) {
+	logger.Println(cli.getTorrent(torrent).Stats())
+	logger.Println("Remaining ", cli.getTorrent(torrent).BytesMissing())
+}
+
 //IsComplete returns true if torrent has finished downloading
 func (cli *Client) IsComplete(torrent gopirate.Torrent) bool {
 	if tor := cli.getTorrent(torrent); tor != nil {
 		return tor.BytesMissing() > 0
 	}
 	return false
-}
-
-//searchRelease warps gopirate.Search to receive models.release
-func searchRelease(release models.Release) ([]gopirate.Torrent, error) {
-	if release.AlbumArtist == nil {
-		return nil, errors.New("FindAndAddTPBTorrent: release has no artist associated")
-	}
-	return gopirate.Search(release.AlbumArtist.Name + " " + release.Name)
 }

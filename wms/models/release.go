@@ -12,14 +12,14 @@ const relColName = "release"
 
 //Release represents an artist/band/person
 type Release struct {
-	ID            bson.ObjectId `json:"id,omitempty" bson:"_id"`
-	ReleaseDate   time.Time     `json:"releaseDate,omitempty" bson:"release_date"`
-	Name          string        `json:"name,omitempty" bson:"name"`
-	AlbumArtistID string        `json:"-" bson:"album_artist_id"`
-	AlbumArtist   *Artist       `json:"artist,omitempty" bson:"-"`
-	CoverURL      string        `json:"coverURL,omitempty" bson:"cover_url"`
-	TrackIDs      []string      `json:"-" bson:"track_ids"`
-	Tracks        []Track       `json:"tracks,omitempty" bson:"-"`
+	ID            bson.ObjectId  `json:"id,omitempty" bson:"_id"`
+	ReleaseDate   time.Time      `json:"releaseDate,omitempty" bson:"release_date"`
+	Name          string         `json:"name,omitempty" bson:"name"`
+	AlbumArtistID string         `json:"-" bson:"album_artist_id"`
+	AlbumArtist   *Artist        `json:"artist,omitempty" bson:"-"`
+	CoverURL      string         `json:"coverURL,omitempty" bson:"cover_url"`
+	TrackIDs      map[int]string `json:"-" bson:"track_ids"`
+	Tracks        []Track        `json:"tracks,omitempty" bson:"-"`
 }
 
 //Get rel by ID or Name from db
