@@ -62,5 +62,7 @@ func (artist *Artist) Save(db *mgo.Database) error {
 
 //ColCreate creates a collection in db with the appropriate indexes
 func (artist *Artist) ColCreate(db *mgo.Database) error {
-	return db.C(artistColName).EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
+	return db.
+		C(artistColName).
+		EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
 }

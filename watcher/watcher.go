@@ -2,7 +2,7 @@ package watcher
 
 import (
 	"github.com/anacrolix/torrent"
-	"github.com/wael/music-streaming/wms/models"
+	"github.com/waelbendhia/music-streaming/wms/models"
 	mgo "gopkg.in/mgo.v2"
 )
 
@@ -12,8 +12,10 @@ type Watcher struct {
 	db              *mgo.Database
 	torrentCli      *torrent.Client
 	stopChannel     chan bool
+	downloadDir     string
 }
 
+//Start the watcher
 func (w *Watcher) Start(db *mgo.Database, torCli *torrent.Client) {
 	w.db = db
 	w.torrentCli = torCli
@@ -21,9 +23,13 @@ func (w *Watcher) Start(db *mgo.Database, torCli *torrent.Client) {
 	go w.watch()
 }
 
+//Stop the watcher
+func (w *Watcher) Stop() {
+	w.stopChannel <- true
+}
+
 func (w *Watcher) watch() {
-	run := true
-	for run {
+	for {
 		select {
 		case stop := <-w.stopChannel:
 			if stop {
@@ -31,6 +37,13 @@ func (w *Watcher) watch() {
 			}
 		default:
 		}
-		//Watch downloads in loop and update DB and torrentCli if download is finished
+		// Watch downloads in loop and update DB and torrentCli if download is
+		// finished
+		for _, tor := range w.torrentCli.Torrents() {
+			// Torrent has finished
+			if tor.BytesMissing() == 0 {
+
+			}
+		}
 	}
 }

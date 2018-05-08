@@ -98,14 +98,23 @@ func extractDataFromTR(tr *html.Node) (Torrent, error) {
 		return result, fmt.Errorf("can't find leechers node: %v", err)
 	}
 	result.Leechers, err = strconv.Atoi(leechersNode.Data)
-	infoNode, err := extractPath(root, []direction{fC, nS, nS, nS, nS, nS, nS, nS, fC})
+	infoNode, err := extractPath(
+		root,
+		[]direction{fC, nS, nS, nS, nS, nS, nS, nS, fC},
+	)
 	if err != nil {
 		return result, fmt.Errorf("can't find info node: %v", err)
 	}
-	regMatch := regexp.MustCompile(`Size (?P<size>\d+\.\d+) (?P<sizetype>[K|M|G])iB`).FindStringSubmatch(infoNode.Data)
+	regMatch := regexp.
+		MustCompile(`Size (?P<size>\d+\.\d+) (?P<sizetype>[K|M|G])iB`).
+		FindStringSubmatch(infoNode.Data)
 	if len(regMatch) > 2 {
 		szFlt, _ := strconv.ParseFloat(regMatch[1], 32)
-		result.Size = int64(szFlt * float64(map[string]int64{"K": 1024, "M": 1048576, "G": 1073741824}[regMatch[2]]))
+		result.Size = int64(szFlt * float64(map[string]int64{
+			"K": 1024,
+			"M": 1048576,
+			"G": 1073741824,
+		}[regMatch[2]]))
 	}
 	return result, nil
 }

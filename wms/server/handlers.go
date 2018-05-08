@@ -8,26 +8,41 @@ import (
 
 	"log"
 
-	"github.com/wael/music-streaming/gopirate"
-	"github.com/wael/music-streaming/wms/models"
+	"github.com/waelbendhia/music-streaming/gopirate"
+	"github.com/waelbendhia/music-streaming/wms/models"
 )
 
 func (s *Server) searchAlbumsHandler(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Query().Get("name")
-	search := models.Release{Name: name}
-	var finalResult []models.Release
-	intResC, lfmResC := make(chan []models.Release, 1), make(chan []models.Release, 1)
-	intErrC, lfmErrC := make(chan error, 1), make(chan error, 1)
-	run := func(resC chan<- []models.Release, errC chan<- error, fn func() ([]models.Release, error)) {
-		res, err := fn()
-		resC <- res
-		errC <- err
-		close(resC)
-		close(errC)
-	}
-	go run(intResC, intErrC, func() ([]models.Release, error) { return search.Search(s.db) })
-	go run(lfmResC, lfmErrC, func() ([]models.Release, error) { return lfmSearchConverter(s.lfmCli.SearchAlbums(name)) })
-	wait := func(resC <-chan []models.Release, errC <-chan error) (res []models.Release, err error) {
+	var (
+		name        = r.URL.Query().Get("name")
+		search      = models.Release{Name: name}
+		finalResult []models.Release
+		intResC     = make(chan []models.Release, 1)
+		lfmResC     = make(chan []models.Release, 1)
+		intErrC     = make(chan error, 1)
+		lfmErrC     = make(chan error, 1)
+		run         = func(
+			resC chan<- []models.Release,
+			errC chan<- error,
+			fn func() ([]models.Release, error),
+		) {
+			res, err := fn()
+			resC <- res
+			errC <- err
+			close(resC)
+			close(errC)
+		}
+	)
+	go run(intResC, intErrC, func() ([]models.Release, error) {
+		return search.Search(s.db)
+	})
+	go run(lfmResC, lfmErrC, func() ([]models.Release, error) {
+		return lfmSearchConverter(s.lfmCli.SearchAlbums(name))
+	})
+	wait := func(
+		resC <-chan []models.Release,
+		errC <-chan error,
+	) (res []models.Release, err error) {
 		select {
 		case res = <-resC:
 		case err = <-errC:
@@ -47,6 +62,8 @@ func (s *Server) searchAlbumsHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) downloadAlbumHandler(w http.ResponseWriter, r *http.Request) {
 	album := r.Context().Value(requestKey).(*models.Release)
+	fmAlbum, err := s.lfmCli.GetAlbumInfo(album.AlbumArtist.Name, album.Name)
+	panicIfErr(err)
 	searchString := album.Name
 	if album.AlbumArtist != nil {
 		searchString = album.AlbumArtist.Name + " " + album.Name
@@ -56,14 +73,12 @@ func (s *Server) downloadAlbumHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no results found", 404)
 		return
 	}
-	s.lfmCli.GetAlbumInfo(album.AlbumArtist.Name, album.Name)
-	panicIfErr(err)
+	converted := lfmAlbumConverter(&fmAlbum.Album)
+	converted.Save(s.db)
 	res = torrentSort(res, func(tor gopirate.Torrent) int {
 		score := scoreTorrentHealth(tor) + scoreTorrentName(searchString)(tor)
-		log.Println("Torrent: ", tor.Name, " Score: ", score)
 		return score
 	})
-	log.Println("SELECTED: ", res[0])
 	s.torrentCli.AddTPBTorrent(res[0])
 	w.WriteHeader(200)
 	output, err := json.Marshal(res)
@@ -73,10 +88,26 @@ func (s *Server) downloadAlbumHandler(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		_ = <-s.torrentCli.GotInfo(res[0])
 		s.infoLog.Println(s.torrentCli.GetInfo(res[0]).Files)
-		panicIfErr(s.torrentCli.StartAll(res[0]))
+		matched := matchTracksToFiles(
+			converted.Tracks,
+			s.torrentCli.GetTorrent(res[0]).Files(),
+		)
+		log.Println(converted.Tracks)
+		for _, v := range matched {
+			v.Download()
+			log.Println("Downloading", v.DisplayPath())
+		}
+		log.Println(matched)
+		// panicIfErr(s.torrentCli.StartAll(res[0]))
 		go func() {
+			var prev int64
 			for {
 				s.torrentCli.PrintStatus(res[0], s.infoLog)
+				now := s.torrentCli.GetTorrent(res[0]).BytesCompleted()
+				delta := (now - prev) / (5 * 1024)
+				prev = now
+				s.infoLog.Println("Delta", delta, "kbps")
+				s.torrentCli.GetTorrent(res[0]).BytesCompleted()
 				time.Sleep(5 * time.Second)
 			}
 		}()

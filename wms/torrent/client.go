@@ -6,7 +6,7 @@ import (
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/wael/music-streaming/gopirate"
+	"github.com/waelbendhia/music-streaming/gopirate"
 )
 
 //ErrTorrentNotFound if torrent is not found this error is returned
@@ -39,7 +39,8 @@ func (cli *Client) AddTPBTorrent(torrent gopirate.Torrent) error {
 	return err
 }
 
-func (cli *Client) getTorrent(torrent gopirate.Torrent) *torrent.Torrent {
+//GetTorrent if added to client
+func (cli *Client) GetTorrent(torrent gopirate.Torrent) *torrent.Torrent {
 	tor, found := cli.torrents[torrent.Link]
 	if found {
 		return tor
@@ -49,7 +50,7 @@ func (cli *Client) getTorrent(torrent gopirate.Torrent) *torrent.Torrent {
 
 //GotInfo returns a channel that closes when torrent has info, or nil if torrent has not been added
 func (cli *Client) GotInfo(torrent gopirate.Torrent) <-chan struct{} {
-	if tor := cli.getTorrent(torrent); tor != nil {
+	if tor := cli.GetTorrent(torrent); tor != nil {
 		return tor.GotInfo()
 	}
 	return nil
@@ -57,7 +58,7 @@ func (cli *Client) GotInfo(torrent gopirate.Torrent) <-chan struct{} {
 
 //GetInfo returns torrent metadata if exists
 func (cli *Client) GetInfo(torrent gopirate.Torrent) *metainfo.Info {
-	if tor := cli.getTorrent(torrent); tor != nil {
+	if tor := cli.GetTorrent(torrent); tor != nil {
 		return tor.Info()
 	}
 	return nil
@@ -65,7 +66,7 @@ func (cli *Client) GetInfo(torrent gopirate.Torrent) *metainfo.Info {
 
 //StartAll downloads all files within given torrent
 func (cli *Client) StartAll(torrent gopirate.Torrent) error {
-	if tor := cli.getTorrent(torrent); tor != nil {
+	if tor := cli.GetTorrent(torrent); tor != nil {
 		tor.DownloadAll()
 		return nil
 	}
@@ -74,13 +75,13 @@ func (cli *Client) StartAll(torrent gopirate.Torrent) error {
 
 //PrintStatus prints status of given torrent
 func (cli *Client) PrintStatus(torrent gopirate.Torrent, logger *log.Logger) {
-	logger.Println(cli.getTorrent(torrent).Stats())
-	logger.Println("Remaining ", cli.getTorrent(torrent).BytesMissing())
+	logger.Println(cli.GetTorrent(torrent).Stats())
+	logger.Println("Remaining ", cli.GetTorrent(torrent).BytesMissing())
 }
 
 //IsComplete returns true if torrent has finished downloading
 func (cli *Client) IsComplete(torrent gopirate.Torrent) bool {
-	if tor := cli.getTorrent(torrent); tor != nil {
+	if tor := cli.GetTorrent(torrent); tor != nil {
 		return tor.BytesMissing() > 0
 	}
 	return false

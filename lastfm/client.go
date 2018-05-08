@@ -71,7 +71,14 @@ func readBody(r *http.Response) ([]byte, error) {
 
 //CreateLastFmClient from lastFM api key
 func CreateLastFmClient(key string) (Client, error) {
-	resp, err := http.Get(fmt.Sprintf(root+"/?method=album.getinfo&api_key=%s&artist=Cher&album=Believe&format=json", key))
+	resp, err := http.Get(fmt.Sprintf(
+		root+"/?method=album.getinfo"+
+			"&api_key=%s"+
+			"&artist=Cher"+
+			"&album=Believe"+
+			"&format=json",
+		key,
+	))
 	if err != nil {
 		return "", err
 	}
@@ -91,7 +98,12 @@ func CreateLastFmClient(key string) (Client, error) {
 
 //GetAlbumInfo gets best match for artistName-albumName
 func (cli Client) GetAlbumInfo(artistName, albumName string) (*AlbumResponse, error) {
-	query := root + fmt.Sprintf("/?method=album.getinfo&api_key=%s&artist=%s&album=%s&format=json", cli, artistName, albumName)
+	query := root + fmt.Sprintf(
+		"/?method=album.getinfo&api_key=%s&artist=%s&album=%s&format=json",
+		cli,
+		artistName,
+		albumName,
+	)
 	resp, err := http.Get(query)
 	if err != nil {
 		return nil, err
@@ -107,7 +119,11 @@ func (cli Client) GetAlbumInfo(artistName, albumName string) (*AlbumResponse, er
 
 //SearchAlbums searches for albums
 func (cli Client) SearchAlbums(searchTerm string) (*SearchResults, error) {
-	query := root + fmt.Sprintf("/?method=album.search&api_key=%s&album=%s&format=json", cli, searchTerm)
+	query := root + fmt.Sprintf(
+		"/?method=album.search&api_key=%s&album=%s&format=json",
+		cli,
+		searchTerm,
+	)
 	resp, err := http.Get(query)
 	if err != nil {
 		return nil, err

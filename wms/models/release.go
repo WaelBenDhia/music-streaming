@@ -24,9 +24,9 @@ type Release struct {
 
 //Get rel by ID or Name from db
 func (rel *Release) Get(db *mgo.Database) (bool, error) {
-	finder := bson.M{"name": rel.Name}
-	if rel.Name == "" {
-		finder = bson.M{"_id": rel.ID}
+	finder := bson.M{"_id": rel.ID}
+	if rel.ID == "" {
+		finder = bson.M{"name": rel.Name, "album_artist_id": rel.AlbumArtistID}
 	}
 	return notFoundOrErr(db.C(relColName).Find(finder).One(rel))
 }
@@ -58,7 +58,12 @@ func (rel *Release) GetFull(db *mgo.Database) (bool, error) {
 
 //ColCreate creates tables in db
 func (rel *Release) ColCreate(db *mgo.Database) error {
-	return db.C(relColName).EnsureIndex(mgo.Index{Key: []string{"name", "album_artist_id"}, Unique: true})
+	return db.
+	C(relColName).
+	EnsureIndex(mgo.Index{
+		Key: []string{"name", "album_artist_id"}, 
+		Unique: true,
+	})
 }
 
 //Search for releases by artist then name
@@ -77,6 +82,22 @@ func (rel *Release) Search(db *mgo.Database) ([]Release, error) {
 
 //Save rel to db
 func (rel *Release) Save(db *mgo.Database) error {
+	copy := Release{
+		Name:        rel.Name,
+		AlbumArtist: rel.AlbumArtist,
+	}
+	_, err := copy.Get(db)
+	if err == nil {
+		return nil
+	}
+	if rel.AlbumArtist == nil {
+		return ErrIncompleteEntity
+	}
+	rel.AlbumArtist.Save(db)
 	rel.ID = bson.NewObjectId()
+	for i := range rel.Tracks {
+		rel.Tracks[i].Save(db)
+		rel.TrackIDs[i] = rel.Tracks[i].ID.Hex()
+	}
 	return db.C(relColName).Insert(rel)
 }

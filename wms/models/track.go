@@ -23,13 +23,18 @@ type Track struct {
 
 //Get track by ID from db
 func (track *Track) Get(db *mgo.Database) (bool, error) {
-	return notFoundOrErr(db.C(trackColName).Find(bson.M{"_id": track.ID}).One(track))
+	return notFoundOrErr(
+		db.C(trackColName).Find(bson.M{"_id": track.ID}).One(track),
+	)
 }
 
 //Search for tracks by
 func (track *Track) Search(db *mgo.Database) ([]Track, error) {
 	var tracks []Track
-	err := db.C(trackColName).Find(bson.M{"artist_id": track.ArtistID}).One(&tracks)
+	err := db.
+		C(trackColName).
+		Find(bson.M{"artist_id": track.ArtistID}).
+		One(&tracks)
 	return tracks, err
 }
 
@@ -41,5 +46,5 @@ func (track *Track) ColCreate(db *mgo.Database) error {
 //Save rel to db
 func (track *Track) Save(db *mgo.Database) error {
 	track.ID = bson.NewObjectId()
-	return db.C(relColName).Insert(track)
+	return db.C(trackColName).Insert(track)
 }

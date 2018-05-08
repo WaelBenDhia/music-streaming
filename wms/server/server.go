@@ -8,10 +8,10 @@ import (
 	"runtime/debug"
 
 	"github.com/gorilla/mux"
-	"github.com/wael/music-streaming/lastfm"
-	"github.com/wael/music-streaming/wms/db"
-	"github.com/wael/music-streaming/wms/models"
-	"github.com/wael/music-streaming/wms/torrent"
+	"github.com/waelbendhia/music-streaming/lastfm"
+	"github.com/waelbendhia/music-streaming/wms/db"
+	"github.com/waelbendhia/music-streaming/wms/models"
+	"github.com/waelbendhia/music-streaming/wms/torrent"
 	"gopkg.in/mgo.v2"
 )
 
@@ -28,9 +28,20 @@ type Server struct {
 }
 
 //NewServer creates and initializes a new music streaming server
-func NewServer(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, downDir, listenAddr string) (Server, error) {
+func NewServer(
+	stdOut, stdErr io.Writer,
+	host, dbPath, lastFMApiKey, downDir, listenAddr string,
+) (Server, error) {
 	s := Server{}
-	return s, s.init(stdOut, stdErr, host, dbPath, lastFMApiKey, downDir, listenAddr)
+	return s, s.init(
+		stdOut,
+		stdErr,
+		host,
+		dbPath,
+		lastFMApiKey,
+		downDir,
+		listenAddr,
+	)
 }
 
 //Start server
@@ -58,7 +69,10 @@ func (s *Server) Stop() error {
 	return err
 }
 
-func (s *Server) init(stdOut, stdErr io.Writer, host, dbPath, lastFMApiKey, downDir, listenAddr string) error {
+func (s *Server) init(
+	stdOut, stdErr io.Writer,
+	host, dbPath, lastFMApiKey, downDir, listenAddr string,
+) error {
 	s.initLogging(stdOut, stdErr)
 	s.initRouting()
 	s.infoLog.Println("Initialzing DB")
@@ -105,10 +119,17 @@ func (s *Server) initRouting() {
 			"Download album",
 			"POST",
 			"/album",
-			AddMiddleware(s.downloadAlbumHandler)(s.requestParsingMiddleware(&models.Release{})),
+			AddMiddleware(s.downloadAlbumHandler)(
+				s.requestParsingMiddleware(&models.Release{}),
+			),
 		},
 	} {
-		s.infoLog.Printf("Registering '%s' endpoint: '%s': %s", endpoint.name, endpoint.path, endpoint.path)
+		s.infoLog.Printf(
+			"Registering '%s' endpoint: '%s': %s",
+			endpoint.name,
+			endpoint.path,
+			endpoint.path,
+		)
 		router.
 			Methods(endpoint.method).
 			Path(endpoint.path).
@@ -120,7 +141,9 @@ func (s *Server) initRouting() {
 
 func (s *Server) initDB(host, DB string) error {
 	if s.db != nil {
-		s.warningLog.Println("Attempted to initialize already initialized database connection")
+		s.warningLog.Println(
+			"Attempted to initialize already initialized database connection",
+		)
 		s.warningLog.Println(string(debug.Stack()))
 		return nil
 	}

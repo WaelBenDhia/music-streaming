@@ -1,6 +1,11 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"errors"
+)
+
+var ErrIncompleteEntity = errors.New("incomplete entity")
 
 func notFoundOrErr(err error) (bool, error) {
 	if err == sql.ErrNoRows {
